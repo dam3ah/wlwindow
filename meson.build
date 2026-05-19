@@ -33,7 +33,7 @@ sources = [
   wl_c_gen,
 ]
 
-lib = library(
+lib = static_library(
   'wlw',
   sources,
   include_directories: inc_dirs,
