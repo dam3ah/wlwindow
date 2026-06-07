@@ -9,7 +9,9 @@ enum class ErrorType
 	LOGIC,
 	OS,
 	WL_DISPLAY,
+	UNKNOWN,
 	WL_SHM,
+	XDG_SHELL,
 };
 
 struct Error
@@ -18,15 +20,24 @@ public:
 	Error(ErrorType type, int code);
 	ErrorType get_type() const;
 	int get_code() const;
-	std::string get_message() const;
+	virtual std::string get_message() const;
+	virtual bool is_fatal() const;
 	explicit operator bool() const;
 
-private:
+protected:
 	int _code;
 	ErrorType _type;
-	static std::string get_wl_display_error_message(int code);
-	static std::string get_wl_shm_error_message(int code);
+	Error &operator=(const Error &other) = delete;
+private:
 	static std::string get_usage_error_message(int code);
 	static std::string get_logic_error_message(int code);
-	Error &operator=(const Error &other) = delete;
+};
+
+struct FatalError : public Error {
+public:
+	virtual std::string get_message() const override;
+	virtual bool is_fatal() const override;
+	FatalError(ErrorType type, int code, std::string message);
+private:
+	std::string message;
 };

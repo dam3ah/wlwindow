@@ -1,8 +1,10 @@
 #include <cstring>
+#include <wayland-client-core.h>
+#include <wayland-client-protocol.h>
 #include "wlw.hpp"
 State::operator bool() const
 {
-	return display != nullptr && registry != nullptr && shm != nullptr && compositor != nullptr && xdg_shell;
+	return display != nullptr && registry != nullptr && shm != nullptr && compositor != nullptr && xdg_shell != nullptr;	
 }
 App &App::init(uint8_t bufnum, const char *display_name)
 {
@@ -10,7 +12,7 @@ App &App::init(uint8_t bufnum, const char *display_name)
 	return instance;
 }
 
-App::App(uint8_t bufnum, const char *display_name) : state{}, display_listener{.error = App::display_handle_error, .delete_id = App::display_handle_delete_id}, registry_listener{.global = App::registry_handle_global, .global_remove = App::registry_handle_global_remove}, xdg_shell_listener{.ping = App::ping}
+App::App(uint8_t bufnum, const char *display_name) : bufnum(bufnum), state{}, display_listener{.error = App::display_handle_error, .delete_id = App::display_handle_delete_id}, registry_listener{.global = App::registry_handle_global, .global_remove = App::registry_handle_global_remove}, xdg_shell_listener{.ping = App::ping}
 {
 
 	int result = 0;
@@ -47,16 +49,20 @@ App::App(uint8_t bufnum, const char *display_name) : state{}, display_listener{.
 		return;
 	}
 	result = wl_display_roundtrip(state.display);
+	if(error->get_type() == ErrorType::USAGE && error->get_code() == 1)
+		return ;
 	if (result == -1)
 	{
 		error = new Error(ErrorType::OS, errno);
 		return;
 	}
-	if (state.shm == nullptr)
+	if (!state)
 	{
 		error = new Error(ErrorType::USAGE, 0);
 		return;
 	}
+	xdg_wm_base_add_listener(state.xdg_shell, &xdg_shell_listener, this);
+
 }
 
 App::~App()
@@ -85,7 +91,19 @@ void App::ping(void *data, xdg_wm_base *xdg_wm_base, uint32_t serial)
 void App::display_handle_error(void *data, wl_display *display, void *object_id, uint32_t code, const char *message)
 {
 	App *app = static_cast<App *>(data);
-	app->error = new Error(ErrorType::WL_DISPLAY, code);
+	const wl_interface* iface = wl_proxy_get_interface(static_cast<wl_proxy* >(object_id));
+	if (iface) {
+		if (iface == &wl_shm_interface) {
+			app->error = new FatalError(ErrorType::WL_SHM, code,message);
+		}  else if (iface == &xdg_wm_base_interface) {
+			app->error = new FatalError(ErrorType::XDG_SHELL, code, message);
+		} else if (iface == &wl_display_interface){
+			app->error = new FatalError(ErrorType::WL_DISPLAY, code, message);
+		}
+
+	} else {
+		app->error = new FatalError(ErrorType::UNKNOWN, code, message);
+	}
 }
 
 void App::display_handle_delete_id(void *data, wl_display *display, uint32_t id)
@@ -98,15 +116,20 @@ void App::registry_handle_global(void *data, wl_registry *registry, uint32_t nam
 	if (strcmp(interface, wl_shm_interface.name) == 0)
 	{
 		app->state.shm = static_cast<wl_shm *>(wl_registry_bind(registry, name, &wl_shm_interface, 1));
+		if(!app->state.shm)
+			app->error = new Error(ErrorType::USAGE, 1);
 	}
 	else if (strcmp(interface, wl_compositor_interface.name) == 0)
 	{
 		app->state.compositor = static_cast<wl_compositor *>(wl_registry_bind(registry, name, &wl_compositor_interface, 4));
+		if(!app->state.compositor)
+			app->error = new Error(ErrorType::USAGE, 1);
 	}
 	else if (strcmp(interface, xdg_wm_base_interface.name) == 0)
 	{
 		app->state.xdg_shell = static_cast<xdg_wm_base *>(wl_registry_bind(registry, name, &xdg_wm_base_interface, 1));
-		xdg_wm_base_add_listener(app->state.xdg_shell, &app->xdg_shell_listener, app);
+		if(!app->state.xdg_shell)
+			app->error = new Error(ErrorType::USAGE, 1);
 	}
 }
 void App::registry_handle_global_remove(void *data, wl_registry *registry, uint32_t name)

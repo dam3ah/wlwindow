@@ -27,6 +27,7 @@ public:
 private:
 	App(uint8_t bufnum, const char *display_name);
 	State state;
+	const uint8_t bufnum;
 	const wl_display_listener display_listener;
 	const wl_registry_listener registry_listener;
 	const xdg_wm_base_listener xdg_shell_listener;
