@@ -6,8 +6,6 @@ project(
   default_options : ['warning_level=3', 'cpp_std=c++11'],
 )
 
-add_project_arguments('-fext-numeric-literals', language: 'cpp')
-
 wl_scanner = find_program('wayland-scanner', required: true)
 
 xdg_xml = files('/usr/share/wayland-protocols/stable/xdg-shell/xdg-shell.xml')
@@ -20,6 +18,15 @@ dependencies = [
   dependency('wayland-client'),
   dependency('rt', required: false),
 ]
+
+args = ['-fext-numeric-literals']
+
+build_type = get_option('buildtype')
+if build_type == 'debug'
+  dependencies += dependency('spdlog')
+  args += ['-DSPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE', '-DDEBUG=1']
+endif
+
 
 inc_dirs = include_directories('include', '.')
 # These arguments are only used to build the shared library
@@ -37,9 +44,10 @@ lib = static_library(
   'wlw',
   sources,
   include_directories: inc_dirs,
-  install : true,
+  install : false,
   gnu_symbol_visibility : 'hidden',
   dependencies : dependencies,
+  cpp_args: args,
 )
 
 # Make this library usable as a Meson subproject.

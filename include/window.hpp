@@ -1,3 +1,4 @@
+// TODO: find a way to deal with errors 
 #pragma once
 #include <wayland-client.h>
 #include <xdg-shell-protocol.h>
@@ -10,7 +11,7 @@ namespace
         wl_buffer *buffer = nullptr;
         BufferNode *next = nullptr;
         Error *error = nullptr;
-        void draw_buffer(ssize_t size, uint16_t width, uint16_t height, uint16_t stride, wl_shm_format shm_fmt, wl_shm *shm, std::function<void(void *data, uint16_t width, uint16_t height)> draw);
+        void draw_buffer(ssize_t size, uint16_t width, uint16_t height, uint16_t stride, uint8_t bpp, wl_shm_format shm_fmt, wl_shm *shm, std::function<void(void *data, uint16_t width, uint16_t height, uint8_t bpp)> draw);
         ~BufferNode();
         explicit operator bool();
         BufferNode &operator=(const BufferNode &other) = delete;
@@ -59,9 +60,9 @@ enum class ColorFormat
 // TODO: implement windwos
 struct Surface
 {
-    Surface(wl_compositor *compositor, xdg_wm_base *xdg_shell, wl_shm *shm, uint16_t width, uint16_t height, uint8_t bufnum, ColorFormat cf = ColorFormat::ARGB);
+    Surface(wl_compositor *compositor, xdg_wm_base *xdg_shell, wl_shm *shm, uint16_t width, uint16_t height, uint8_t bufnum, ColorFormat cf);
     ~Surface();
-    void draw(std::function<void(void *data, uint16_t width, uint16_t height)> surf_draw);
+    void draw(std::function<void(void *data, uint16_t width, uint16_t height, uint8_t bpp)> surf_draw);
 
 private:
     uint8_t bufnum;

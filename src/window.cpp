@@ -12,7 +12,7 @@ wl_shm *Surface::shm = nullptr;
 
 namespace
 {
-    void BufferNode::draw_buffer(ssize_t size, uint16_t width, uint16_t height, uint16_t stride, wl_shm_format shm_fmt, wl_shm *shm, std::function<void(void *data, uint16_t width, uint16_t height)> draw)
+    void BufferNode::draw_buffer(ssize_t size, uint16_t width, uint16_t height, uint16_t stride, uint8_t bpp,wl_shm_format shm_fmt, wl_shm *shm, std::function<void(void *data, uint16_t width, uint16_t height, uint8_t bpp)> draw)
     {
 
         int shm_fd = allocate_shm_file(size);
@@ -30,12 +30,11 @@ namespace
         }
         wl_shm_pool *pool = wl_shm_create_pool(shm, shm_fd, size);
         close(shm_fd);
-        this->buffer = wl_shm_pool_create_buffer(pool, 0,
-                                                 width, height, stride, shm_fmt);
+        this->buffer = wl_shm_pool_create_buffer(pool, 0, width, height, stride, shm_fmt);
         wl_shm_pool_destroy(pool);
         close(shm_fd);
         // TODO: pass more shit to the user he cant just imagine a data array and write shit
-        draw(data, width, height);
+        draw(data, width, height, bpp);
 
         munmap(data, size);
     }
@@ -222,11 +221,11 @@ Surface::~Surface()
     wl_surface_destroy(surf);
     xdg_surface_destroy(xdg_surf);
 }
-
-void Surface::draw(std::function<void(void *data, uint16_t width, uint16_t height)> surf_draw)
+// TODO: pass the bpp To the user 
+void Surface::draw(std::function<void(void *data, uint16_t width, uint16_t height, uint8_t bpp)> surf_draw)
 {
     // TODO: logic isnt logicing
-    buf_ring->get_next()->draw_buffer(get_buffer_size(), width, height, get_stride(), shm_format, shm, surf_draw);
+    buf_ring->get_next()->draw_buffer(get_buffer_size(), width, height, get_stride(), bpp, shm_format, shm, surf_draw);
     // wl_surface_attach(surf, current_buffer->buffer, 0, 0);
     // wl_surface_commit(surf);
 }
